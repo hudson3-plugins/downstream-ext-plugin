@@ -1,0 +1,159 @@
+diff --git a/pom.xml b/pom.xml
+index f5a4faf..58fe450 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -1,20 +1,23 @@
++<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+ <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+ 	<modelVersion>4.0.0</modelVersion>
+ 
+ 	<parent>
+-		<groupId>org.jenkins-ci.plugins</groupId>
+-		<artifactId>plugin</artifactId>
+-		<version>1.480</version>
+-	</parent>
++		<groupId>org.eclipse.hudson.plugins</groupId>
++		<artifactId>hudson-plugin-parent</artifactId>
++		<version>3.0.0</version>
++	<relativePath/>
++  </parent>
+ 
+ 	<name>Downstream-Ext</name>
+ 	<description>
+                 This plugin provides advanced options for triggering downstream builds.
+ 	</description>
+-	<artifactId>downstream-ext</artifactId>
++	<groupId>org.hudsonci.plugins</groupId>
++  <artifactId>downstream-ext</artifactId>
+ 	<packaging>hpi</packaging>
+-	<version>1.8</version>
+-    <url>https://wiki.jenkins-ci.org/display/JENKINS/Downstream-Ext+Plugin</url>
++	<version>1.8-h-1-SNAPSHOT</version>
++    <url>https://wiki.hudson-ci.org/display/HUDSON/Downstream-Ext+Plugin</url>
+     <developers>
+         <developer>
+             <id>kutzi</id>
+@@ -33,7 +36,8 @@
+ 	
+     <properties>
+         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+-    </properties>
++    <hudsonTags>trigger</hudsonTags>
++  </properties>
+ 	
+ 	<build>
+         <plugins>
+@@ -69,17 +73,12 @@
+     	</dependency>
+     </dependencies>
+     
+-    <repositories>
+-        <repository>
+-            <id>repo.jenkins-ci.org</id>
+-            <url>http://repo.jenkins-ci.org/public/</url>
+-        </repository>
+-    </repositories>
++    
+     
+     <scm>
+-        <connection>scm:git:github.com:jenkinsci/downstream-ext-plugin.git</connection>
+-        <developerConnection>scm:git:git@github.com:jenkinsci/downstream-ext-plugin.git</developerConnection>
+-        <url>https://github.com/jenkinsci/downstream-ext-plugin</url>
++        <connection>scm:git:git://github.com/hudson3-plugins/downstream-ext.git</connection>
++        <developerConnection>scm:git:git@github.com:hudson3-plugins/downstream-ext.git</developerConnection>
++        <url>https://github.com/hudson3-plugins/downstream-ext</url>
+     </scm>
+ 
+     <pluginRepositories>
+@@ -88,5 +87,4 @@
+             <url>http://repo.jenkins-ci.org/public/</url>
+         </pluginRepository>
+     </pluginRepositories>
+-</project>  
+-
++</project>
+diff --git a/src/main/java/hudson/plugins/downstream_ext/DownstreamTrigger.java b/src/main/java/hudson/plugins/downstream_ext/DownstreamTrigger.java
+index 245f3ec..839b7fb 100644
+--- a/src/main/java/hudson/plugins/downstream_ext/DownstreamTrigger.java
++++ b/src/main/java/hudson/plugins/downstream_ext/DownstreamTrigger.java
+@@ -62,7 +62,8 @@ import java.util.concurrent.Executors;
+ import java.util.logging.Level;
+ import java.util.logging.Logger;
+ 
+-import jenkins.model.Jenkins;
++import hudson.model.Hudson;
++import hudson.model.HudsonHelper;
+ import net.sf.json.JSONObject;
+ 
+ import org.apache.commons.lang.StringUtils;
+@@ -190,7 +191,7 @@ public class DownstreamTrigger extends Notifier implements DependecyDeclarer, Ma
+     }
+ 
+     public List<AbstractProject> getChildProjects(ItemGroup context) {
+-        return Items.fromNameList(context,childProjects,AbstractProject.class);
++        return HudsonHelper.fromNameList(context,childProjects,AbstractProject.class);
+     }
+     
+     public Strategy getStrategy() {
+@@ -217,7 +218,7 @@ public class DownstreamTrigger extends Notifier implements DependecyDeclarer, Ma
+     	}
+     	
+     	// workaround for problems with Matrix projects
+-    	// see https://issues.jenkins-ci.org/browse/JENKINS-5508
++    	// see https://issues.jenkins-ci.org/browse/HUDSON-5508
+     	if (this.matrixTrigger != null &&
+     		(this.matrixTrigger == MatrixTrigger.ONLY_CONFIGURATIONS
+     	    || this.matrixTrigger == MatrixTrigger.BOTH)) {
+@@ -343,25 +344,25 @@ public class DownstreamTrigger extends Notifier implements DependecyDeclarer, Ma
+             while(tokens.hasMoreTokens()) {
+                 String projectName = tokens.nextToken().trim();
+                 if (StringUtils.isNotBlank(projectName)) {
+-                    Item item = Jenkins.getInstance().getItem(projectName,project,Item.class);
++                    Item item = HudsonHelper.getItem(projectName, project, Item.class);
+                     if(item==null)
+                         return FormValidation.error(Messages.BuildTrigger_NoSuchProject(projectName,
+-                                AbstractProject.findNearest(projectName,project.getParent()).getRelativeNameFrom(project)));
++                                HudsonHelper.getRelativeNameFrom(HudsonHelper.findNearest(projectName,project.getParent()), project.getParent())));
+                     if(!(item instanceof AbstractProject))
+                         return FormValidation.error(Messages.BuildTrigger_NotBuildable(projectName));
+                     hasProjects = true;
+                 }
+             }
+             if (!hasProjects) {
+-                return FormValidation.error(Messages.BuildTrigger_NoProjectSpecified());
++                return FormValidation.error(hudson.plugins.downstream_ext.Messages.DownstreamTrigger_NoProjectSpecified());
+             }
+ 
+             return FormValidation.ok();
+         }
+-
++        
+         public AutoCompletionCandidates doAutoCompleteChildProjects(@QueryParameter String value) {
+             AutoCompletionCandidates candidates = new AutoCompletionCandidates();
+-            List<Job> jobs = Jenkins.getInstance().getItems(Job.class);
++            List<Job> jobs = Hudson.getInstance().getItems(Job.class);
+             for (Job job: jobs) {
+                 if (job.getFullName().startsWith(value)) {
+                     if (job.hasPermission(Item.READ)) {
+diff --git a/src/main/resources/hudson/plugins/downstream_ext/Messages.properties b/src/main/resources/hudson/plugins/downstream_ext/Messages.properties
+index 855eae0..a75bc42 100644
+--- a/src/main/resources/hudson/plugins/downstream_ext/Messages.properties
++++ b/src/main/resources/hudson/plugins/downstream_ext/Messages.properties
+@@ -2,3 +2,4 @@ DownstreamTrigger.DisplayName=Build other projects (extended)
+ DownstreamTrigger.StartedAsynchPoll=Scheduled an asynchronous SCM poll for {0}. Project will be started later if applicable. 
+ DownstreamTrigger.NoSCMChanges={0} has no SCM changes. Triggering skipped.
+ DownstreamTrigger.ConditionNotMet=Condition: ''build result {0} {1}'' not met. Triggering skipped.
++DownstreamTrigger.NoProjectSpecified=No project specified
+diff --git a/src/main/resources/hudson/plugins/downstream_ext/Messages_de.properties b/src/main/resources/hudson/plugins/downstream_ext/Messages_de.properties
+index 8e95d38..6b4f908 100644
+--- a/src/main/resources/hudson/plugins/downstream_ext/Messages_de.properties
++++ b/src/main/resources/hudson/plugins/downstream_ext/Messages_de.properties
+@@ -1,4 +1,5 @@
+ DownstreamTrigger.DisplayName=Weitere Projekte bauen (erweitert)
+-DownstreamTrigger.StartedAsynchPoll=Asynchrone SCM Abfrage für {0} gestartet. Projekt wird ggf. später gebaut.
+-DownstreamTrigger.NoSCMChanges={0} hat keine SCM Änderungen. Keine Auslösung des Builds.
+-DownstreamTrigger.ConditionNotMet=Bedingung: ''Build-Ergebnis {0} {1}'' nicht erfüllt. Keine Auslösung des Builds.
++DownstreamTrigger.StartedAsynchPoll=Asynchrone SCM Abfrage f\u00fcr {0} gestartet. Projekt wird ggf. sp\u00e4ter gebaut.
++DownstreamTrigger.NoSCMChanges={0} hat keine SCM \u00c4nderungen. Keine Ausl\u00f6sung des Builds.
++DownstreamTrigger.ConditionNotMet=Bedingung: ''Build-Ergebnis {0} {1}'' nicht erf\u00fcllt. Keine Ausl\u00f6sung des Builds.
++DownstreamTrigger.NoProjectSpecified=Keine Projekt angegeben
