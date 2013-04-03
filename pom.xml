@@ -6,7 +6,7 @@
 		<groupId>org.eclipse.hudson.plugins</groupId>
 		<artifactId>hudson-plugin-parent</artifactId>
 		<version>3.0.0</version>
-	<relativePath/>
+	<relativePath />
   </parent>
 
 	<name>Downstream-Ext</name>
@@ -16,7 +16,7 @@
 	<groupId>org.hudsonci.plugins</groupId>
   <artifactId>downstream-ext</artifactId>
 	<packaging>hpi</packaging>
-	<version>1.8-h-1-SNAPSHOT</version>
+	<version>1.8-h-1</version>
     <url>https://wiki.hudson-ci.org/display/HUDSON/Downstream-Ext+Plugin</url>
     <developers>
         <developer>
